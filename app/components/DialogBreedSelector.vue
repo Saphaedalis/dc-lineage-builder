@@ -121,11 +121,8 @@ async function jumpToFirstResult() {
   await nextTick();
 
   if (resultsEl.value) {
-    resultsEl.value
-      .querySelector<HTMLElement>(
-        "[tabindex='-1'], .breed-entry-button, .grid-cell",
-      )
-      ?.focus();
+    resultsEl.value.querySelector<HTMLElement>('[tabindex="-1"]').focus();
+    resultsEl.value.querySelector('.grid-cell')?.classList.add('selected');
   }
 }
 </script>

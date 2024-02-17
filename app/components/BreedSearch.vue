@@ -3,6 +3,7 @@
     class="breed-search interactive"
     type="search"
     autocomplete="off"
+    :="$attrs"
     @input="search"
   />
 </template>

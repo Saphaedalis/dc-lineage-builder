@@ -3,28 +3,38 @@
     v-if="compact && breedList.length > 0"
     ref="wrapper"
     class="wrapper"
+    :class="{
+      focused: activeIndex !== null,
+    }"
     tabindex="0"
-    @focusin="focused = true"
-    @focusout="focused = false"
     @keydown="handleKeyDown"
+    @vue:updated="
+      activeIndex = Number.isNaN(
+        parseInt(wrapper?.querySelector('.selected')?.dataset?.index),
+      )
+        ? parseInt(wrapper?.querySelector('.selected')?.dataset?.index)
+        : null
+    "
   >
     <p
       class="active sr-only"
       tabindex="-1"
     >
-      <b :id="`active-${id}`">
-        Selected breed {{ breedList[activeIndex].data.breed.name }}.
+      <b
+        v-if="activeIndex !== null"
+        :id="`active-${id}`"
+      >
+        Selected breed {{ breedList[activeIndex]?.data.breed.name }}.
       </b>
       Use arrow keys to navigate breed list.
     </p>
-
     <VirtualCollection
       ref="grid"
       class="mates-compact grid"
       :cell-size-and-position-getter="cellSizeAndPositionGetter"
       :collection="breedList"
-      :height="abs(parentSize.height.value - scrollGutter)"
-      :width="abs(parentSize.width.value - scrollGutter)"
+      :height="Math.abs(parentSize.height.value - scrollGutter)"
+      :width="Math.abs(parentSize.width.value - scrollGutter)"
       :section-size="size"
       :aria-labelledby="`active-${id}`"
     >
@@ -32,12 +42,14 @@
         <DragonPortrait
           :data="data.breed"
           :data-index="data.index"
+          tabindex="-1"
           class="grid-cell"
           :class="{
-            selected: focused && data.index === activeIndex,
+            selected: data.index === activeIndex,
           }"
           @click="emit('breedSelected', data.breed)"
           @mousedown="activeIndex = data.index"
+          @touchstart="activeIndex = data.index"
         />
       </template>
     </VirtualCollection>
@@ -76,8 +88,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
-import { useElementSize, useParentElement } from '@vueuse/core';
+import { ref, computed, watch, watchEffect } from 'vue';
+import { onClickOutside, useElementSize, useParentElement } from '@vueuse/core';
 import VirtualCollection from 'vue-virtual-collection/src/VirtualCollection.vue';
 import type { PortraitData } from '../shared/types';
 import DragonPortrait from './DragonPortrait.vue';
@@ -111,11 +123,12 @@ const margin = 4;
 const scrollGutter = 18;
 const wrapper = ref<HTMLDivElement>();
 const grid = ref();
-const activeIndex = ref<number>(0);
+const activeIndex = ref<number | null>(null);
 const parent = useParentElement(wrapper);
 const parentSize = useElementSize(parent);
-const focused = ref(false);
-const abs = Math.abs;
+
+onClickOutside(wrapper, () => (activeIndex.value = null));
+
 // We want our grid to be fluid, which means we have to employ a somewhat
 // hacky solution to ensure it takes up the parent container's space even when
 // resized
@@ -149,12 +162,13 @@ function cellSizeAndPositionGetter(_: PortraitData, index: number) {
 }
 
 function handleKeyDown(e: KeyboardEvent) {
-  if (['Space', 'Enter'].includes(e.code)) {
+  console.log(e);
+  if (['Space', 'Enter'].includes(e.code) && activeIndex.value) {
     emit('breedSelected', breedList.value[activeIndex.value].data.breed);
     e.preventDefault();
   }
 
-  const nextIndex = determineGridAction(activeIndex.value, e);
+  const nextIndex = determineGridAction(activeIndex.value ?? 0, e);
 
   if (nextIndex !== -1) {
     e.preventDefault();
@@ -238,6 +252,7 @@ function strToId(name: string) {
 <style scoped lang="postcss">
 .wrapper {
   padding: 0.2rem;
+  user-select: none;
 }
 .mates {
   list-style-type: none;
@@ -285,6 +300,7 @@ function strToId(name: string) {
 .grid {
   margin: calc(v-bind('margin') * 1px);
 }
+.wrapper.focused .grid,
 .wrapper:focus .grid {
   outline: 3px solid var(--ui-focus-colour);
 }
@@ -294,14 +310,15 @@ function strToId(name: string) {
 </style>
 
 <style lang="postcss">
+.wrapper.focused .grid-cell.selected {
+  outline: 3px solid var(--ui-focus-colour);
+}
 .grid-cell {
   pointer-events: all;
+  user-select: none;
 
   &:hover {
     opacity: 0.7 !important;
-  }
-  &.selected {
-    outline: 3px solid var(--ui-focus-colour);
   }
   &:active {
     outline: 3px solid var(--ui-focus-colour);
